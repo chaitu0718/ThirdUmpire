@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Umpire</title>
+<style>
+  body {
+    background: #222;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    font-family: Arial, sans-serif;
+    color: white;
+  }
+  .app { display: flex; flex-direction: column; align-items: center; }
+  .title { margin-bottom: 10px; font-size: 1.5em; letter-spacing: 1px; }
+  .screen {
+    background: #333;
+    aspect-ratio: 9 / 16;
+    width: 360px;
+    border-radius: 20px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    border: 3px solid #555;
+    padding: 10px;
+    box-sizing: border-box;
+  }
+  .upper-half, .lower-half { flex: 1; display: flex; flex-direction: column; align-items: center; }
+  .heading { font-size: 1.1em; margin-bottom: 10px; font-weight: bold; text-transform: uppercase; }
+  .circle-container { display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px; }
+  .circle-row { display: flex; flex-wrap: wrap; gap: 5px; max-width: calc(6 * 50px + 5px * 5); }
+  .circle {
+    width: 40px; height: 40px; border-radius: 50%; display: flex;
+    align-items: center; justify-content: center; background-color: #555;
+    cursor: pointer; font-weight: bold; font-size: 1.2em; user-select: none;
+    transition: background 0.2s, border 0.2s;
+  }
+  .small-box-container { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; justify-content: center; }
+  .small-box { background: #555; width: 40px; height: 40px; border-radius: 6px; display: flex; justify-content: center; align-items: center; font-weight: bold; cursor: pointer; transition: background 0.2s; }
+  .small-box:hover { background: #888; }
+  .save-button { background: #1e90ff; color: white; border: none; padding: 10px 30px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: background 0.2s; margin-top: 20px; }
+  .save-button:hover { background: #3399ff; }
+  .lower-half { border-top: 2px solid #444; padding-top: 15px; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; }
+  .stats-container { display: flex; justify-content: center; align-items: center; gap: 30px; margin-top: 20px; }
+  .stat { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .label { font-size: 0.9em; color: #ccc; text-transform: uppercase; letter-spacing: 0.5px; }
+  .box { background: #555; width: 70px; height: 50px; border-radius: 8px; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 1.2em; transition: background 0.2s; }
+  .box:hover { background: #888; }
+  .small-over-box { background: #555; width: 50px; height: 40px; border-radius: 6px; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 1em; transition: background 0.2s; }
+  .small-over-box:hover { background: #888; }
+  .history-button { margin-top: 15px; background: #ffa500; color: #222; border: none; padding: 10px 25px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
+  .history-button:hover { background: #ffb733; }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1 class="title">The Umpire</h1>
+  <div class="screen">
+    <div class="upper-half">
+      <div class="heading">Over</div>
+      <div class="circle-container" id="circle-container">
+        <div id="initial-circles" class="circle-row"></div>
+        <div id="extra-circles" class="circle-row"></div>
+      </div>
+
+      <!-- ✅ Dot Ball and scoring buttons -->
+      <div class="small-box-container">
+        <div class="small-box" data-value=".">.</div>
+        <div class="small-box" data-value="1">1</div>
+        <div class="small-box" data-value="2">2</div>
+        <div class="small-box" data-value="4">4</div>
+        <div class="small-box" data-value="6">6</div>
+        <div class="small-box" data-value="Wd">Wd</div>
+        <div class="small-box" data-value="W">W</div>
+      </div>
+
+      <button class="save-button">Save Over</button>
+    </div>
+
+    <div class="lower-half">
+      <div class="heading">Match Summary</div>
+      <div class="stats-container">
+        <div class="stat">
+          <span class="label">Score</span>
+          <div class="box" id="score-box">0</div>
+        </div>
+        <div class="stat">
+          <span class="label">Wickets</span>
+          <div class="box" id="wickets-box">0</div>
+        </div>
+        <div class="stat">
+          <span class="label">Overs</span>
+          <div class="small-over-box" id="overs-box">0.0</div>
+        </div>
+      </div>
+      <button class="history-button" onclick="window.location.href='scoreboard-history.html'">Scoreboard History</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const initialContainer = document.getElementById('initial-circles');
+const extraContainer = document.getElementById('extra-circles');
+const smallBoxes = document.querySelectorAll('.small-box');
+const saveButton = document.querySelector('.save-button');
+const scoreBox = document.getElementById('score-box');
+const wicketsBox = document.getElementById('wickets-box');
+const oversBox = document.getElementById('overs-box');
+
+let circles = [];
+let activeIndex = 0;
+const initialCount = 6;
+
+let score = 0;
+let wickets = 0;
+let balls = 0;
+
+function initCircles(savedValues = []) {
+  initialContainer.innerHTML = '';
+  extraContainer.innerHTML = '';
+  circles = [];
+
+  for (let i = 0; i < initialCount; i++) {
+    const val = savedValues[i] || '';
+    const c = addCircle(val, false);
+    if (val) adjustScore(val, 1, false);
+  }
+
+  if (savedValues.length > initialCount) {
+    for (let i = initialCount; i < savedValues.length; i++) addCircle(savedValues[i], true);
+  }
+
+  setActiveCircle(circles.findIndex(c => !c.textContent) || 0);
+  updateDisplay();
+}
+
+function addCircle(value = '', isExtra = false, relatedWdIndex = null) {
+  const c = document.createElement('div');
+  c.classList.add('circle');
+  c.textContent = value;
+  c.dataset.extra = isExtra ? 'true' : 'false';
+  if (relatedWdIndex !== null) c.dataset.relatedWd = relatedWdIndex;
+  updateCircleColor(c);
+
+  c.addEventListener('click', () => setActiveCircle(circles.indexOf(c)));
+
+  if (isExtra) extraContainer.appendChild(c);
+  else initialContainer.appendChild(c);
+
+  circles.push(c);
+  return c;
+}
+
+function setActiveCircle(index) {
+  activeIndex = index;
+  circles.forEach((c,i)=> c.style.border = i===index ? '2px solid #1e90ff' : 'none');
+}
+
+function fillCircle(value) {
+  const circle = circles[activeIndex];
+  handleCircleChange(circle, value);
+  const next = circles.findIndex((c,i)=>i>activeIndex && c.dataset.extra!=='true' && !c.textContent);
+  if(next!==-1)setActiveCircle(next);
+}
+
+function handleCircleChange(circle, value) {
+  const prevValue = circle.textContent;
+  const index = circles.indexOf(circle);
+
+  if (prevValue) adjustScore(prevValue, -1);
+  if (circle.textContent === 'Wd' && value!=='Wd') removeExtraCircleFor(index);
+
+  circle.textContent = value;
+  updateCircleColor(circle);
+
+  if (value === 'Wd' && !circles.some(c => c.dataset.extra==='true' && c.dataset.relatedWd==index)) {
+    addCircle('', true, index);
+  }
+
+  adjustScore(value, 1);
+  updateDisplay();
+  saveCurrentMatch();
+}
+
+function removeExtraCircleFor(wdIndex){
+  const extraIndex = circles.findIndex(c=>c.dataset.extra==='true' && c.dataset.relatedWd==wdIndex);
+  if(extraIndex!==-1){ extraContainer.removeChild(circles[extraIndex]); circles.splice(extraIndex,1); }
+}
+
+// ✅ FIXED: Wides no longer add runs
+function adjustScore(value, direction=1, countBall=true){
+  const num = parseInt(value);
+  if(!isNaN(num)){ 
+    score += num * direction; 
+    if(direction>0 && countBall) balls++; 
+    if(direction<0 && countBall) balls--; 
+  }
+  else if(value === '.') { 
+    // Dot ball: legal delivery, no runs
+    if(direction>0 && countBall) balls++;
+    if(direction<0 && countBall) balls--;
+  }
+  else if(value === 'Wd'){ 
+    // Wide: NO RUN added, and NOT a legal ball
+    // (extra delivery created elsewhere)
+  }
+  else if(value === 'W'){ 
+    wickets += 1 * direction; 
+    if(direction>0 && countBall) balls++; 
+    if(direction<0 && countBall) balls--; 
+  }
+}
+
+function updateDisplay(){
+  scoreBox.textContent=score;
+  wicketsBox.textContent=wickets;
+  oversBox.textContent=formatOvers(balls);
+}
+
+function formatOvers(balls){ return Math.floor(balls/6)+'.'+(balls%6); }
+
+function updateCircleColor(c){
+  switch(c.textContent){
+    case 'W': c.style.backgroundColor='red'; break;
+    case '4': c.style.backgroundColor='blue'; break;
+    case '6': c.style.backgroundColor='green'; break;
+    default: c.style.backgroundColor='#555'; break;
+  }
+}
+
+smallBoxes.forEach(box=>box.addEventListener('click',()=>fillCircle(box.dataset.value)));
+
+[initialContainer,extraContainer].forEach(container=>{
+  container.addEventListener('dblclick',e=>{
+    if(!e.target.classList.contains('circle')) return;
+    const circle=e.target;
+    const val=prompt('Enter value (.,1,2,4,6,Wd,W):',circle.textContent);
+    if(val===null) return;
+    handleCircleChange(circle,val);
+    setActiveCircle(circles.indexOf(circle));
+  });
+});
+
+saveButton.addEventListener('click',()=>{
+  const ballsInOver = circles.map(c=>c.textContent);
+  const history = JSON.parse(localStorage.getItem('scoreHistory')||'[]');
+  history.push({balls:ballsInOver, score, wickets, overs: formatOvers(balls)});
+  localStorage.setItem('scoreHistory', JSON.stringify(history));
+
+  initCircles();
+  saveCurrentMatch();
+  alert('Over saved!');
+});
+
+function saveCurrentMatch(){
+  localStorage.setItem('currentMatch', JSON.stringify({
+    balls: circles.map(c=>c.textContent),
+    score,
+    wickets,
+    balls
+  }));
+}
+
+const savedMatch = JSON.parse(localStorage.getItem('currentMatch')||'null');
+if(savedMatch){
+  score = savedMatch.score;
+  wickets = savedMatch.wickets;
+  balls = savedMatch.balls;
+  initCircles(savedMatch.balls);
+}else{
+  initCircles();
+}
+</script>
+</body>
+</html>
